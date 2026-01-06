@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Security - DO NOT COMMIT CREDENTIALS
+security/
+*.pem
+*.key
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AWS
+.aws/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Deployment
+lambda_package/
+lambda_deployment.zip
+*.zip
+
+# Config with real credentials - WARNING: Never commit real credentials!
+# The template config.json is safe to commit with placeholder values only
+
+# Test outputs
+response.json
+output/

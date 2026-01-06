@@ -1,0 +1,15 @@
+{
+  "s3": {
+    "bucket_name": "your-bucket-name",
+    "folder_path": "path/to/folder",
+    "file_name": "facebook_file.json"
+  },
+  "database": {
+    "host": "your-postgres-host.amazonaws.com",
+    "database": "your-database-name",
+    "username": "your-username",
+    "password": "your-password",
+    "port": 5432
+  },
+  "batch_size": 1000
+}
