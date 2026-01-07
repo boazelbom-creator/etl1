@@ -35,12 +35,13 @@ etl1/
 
 ## Prerequisites
 
-1. **Python 3.9+** with virtual environment
+1. **Python 3.12** with virtual environment
 2. **PostgreSQL Database** (accessible from Lambda)
 3. **AWS Account** with:
    - S3 bucket with Facebook JSON files
    - Lambda execution role with S3 read permissions
    - VPC configuration (if database is in VPC)
+   - **VPC Endpoint for S3** (required if Lambda is in VPC)
 
 ## Setup Instructions
 
@@ -113,21 +114,42 @@ python lambda_function.py
 
 ### 1. Create Deployment Package
 
+Use the automated deployment script:
+
 ```bash
-# Create deployment directory
-mkdir lambda_package
+python3 deploy.py
+```
 
-# Copy source code
-cp -r src lambda_package/
-cp lambda_function.py lambda_package/
+This script will:
+- Download Lambda-compatible psycopg2 for Python 3.12
+- Install all dependencies
+- Copy source code
+- Create `lambda-deployment.zip` package
 
-# Install dependencies into package
-pip install -r requirements.txt -t lambda_package/
+**Manual deployment (alternative):**
+```bash
+# Clean previous builds
+rm -rf package lambda-deployment.zip
 
-# Create ZIP file
-cd lambda_package
-zip -r ../lambda_deployment.zip .
-cd ..
+# Create package directory
+mkdir package
+
+# Download Lambda-compatible psycopg2
+pip3 download psycopg2-binary==2.9.9 --platform manylinux2014_x86_64 \
+  --only-binary=:all: --python-version 312 --implementation cp \
+  --abi cp312 -d psycopg2_temp
+cd psycopg2_temp && unzip *.whl && cd ..
+
+# Install other dependencies
+pip3 install boto3 python-dotenv -t package/
+
+# Copy psycopg2 and source code
+cp -r psycopg2_temp/psycopg2 psycopg2_temp/psycopg2_binary.libs package/
+cp -r src package/
+cp lambda_function.py package/
+
+# Create ZIP (use Python if zip command not available)
+cd package && zip -r ../lambda-deployment.zip . && cd ..
 ```
 
 ### 2. Create Lambda Function
@@ -137,13 +159,22 @@ Using AWS CLI:
 ```bash
 aws lambda create-function \
   --function-name facebook-json-to-postgres-etl \
-  --runtime python3.9 \
+  --runtime python3.12 \
   --role arn:aws:iam::YOUR_ACCOUNT:role/lambda-execution-role \
   --handler lambda_function.lambda_handler \
-  --zip-file fileb://lambda_deployment.zip \
+  --zip-file fileb://lambda-deployment.zip \
   --timeout 600 \
   --memory-size 1024 \
   --vpc-config SubnetIds=subnet-xxx,SecurityGroupIds=sg-xxx
+```
+
+Or update existing function:
+
+```bash
+aws lambda update-function-code \
+  --function-name facebook-json-to-postgres-etl \
+  --zip-file fileb://lambda-deployment.zip \
+  --region YOUR_REGION
 ```
 
 ### 3. Configure Environment Variables
@@ -166,7 +197,21 @@ aws lambda update-function-configuration \
   }"
 ```
 
-### 4. IAM Role Permissions
+### 4. VPC Endpoint Setup (Required if Lambda is in VPC)
+
+If your Lambda function is deployed in a VPC, create an S3 VPC Endpoint:
+
+1. Go to **VPC Console** → **Endpoints** → **Create endpoint**
+2. **Service category**: AWS services
+3. **Services**: Select `com.amazonaws.YOUR-REGION.s3` (Type: Gateway)
+4. **VPC**: Select the same VPC as your Lambda
+5. **Route tables**: Select all route tables for Lambda's subnets
+6. **Policy**: Full access
+7. Click **Create endpoint**
+
+**Note**: Gateway VPC Endpoints for S3 are free and required for Lambda to access S3 from within a VPC.
+
+### 5. IAM Role Permissions
 
 Ensure your Lambda execution role has:
 
@@ -291,13 +336,23 @@ View logs in AWS CloudWatch:
    - Check security group rules
    - Verify database credentials
 
-4. **Foreign Key Constraint Error**
+4. **S3 Timeout Error (Lambda in VPC)**
+   - Create S3 VPC Endpoint (Gateway type)
+   - Verify endpoint is attached to Lambda's route tables
+   - Check S3 bucket permissions
+
+5. **Foreign Key Constraint Error**
    - Ensure posts are inserted before comments
    - Verify post_id references are valid
 
-5. **Duplicate Key Error**
+6. **Duplicate Key Error**
    - This should not occur with UPSERT logic
    - Check that primary keys are correctly specified
+
+7. **psycopg2 Import Error**
+   - Use the `deploy.py` script to ensure Lambda-compatible psycopg2
+   - Verify Python runtime is set to 3.12
+   - Do not use local pip install for psycopg2 (architecture mismatch)
 
 ## Data Model
 
@@ -349,6 +404,25 @@ For issues and questions:
 - Check CloudWatch logs for detailed error messages
 - Review PRD.md for requirements clarification
 - Verify database schema matches schema.sql
+
+## Implementation Notes
+
+### Deployment History
+
+**Version 1.0 (2026-01-07)**
+- ✅ Implemented with Python 3.12 runtime
+- ✅ Automated deployment via `deploy.py` script
+- ✅ Lambda-compatible psycopg2 binary packaging
+- ✅ VPC Endpoint configuration for S3 access
+- ✅ Successfully deployed and tested
+- ✅ Processing ~100,000 posts with batch UPSERT
+
+### Key Learnings
+
+1. **psycopg2 Compatibility**: Must use Lambda-compatible binaries (manylinux2014_x86_64) downloaded specifically for target Python version
+2. **VPC Networking**: Lambda in VPC requires S3 VPC Endpoint (Gateway) for S3 access - no NAT Gateway needed
+3. **Environment Variables**: Code reads from environment variables when config file not present
+4. **Deployment Package**: Use automated `deploy.py` script to ensure correct binary compatibility
 
 ## License
 

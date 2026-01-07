@@ -66,10 +66,11 @@ This Lambda function will process Facebook export data in JSON format, parse pos
 ## 3. Non-Functional Requirements
 
 ### 3.1 Technology Stack
-- **NFR-1.1**: Implementation language: Python 3.x
+- **NFR-1.1**: Implementation language: Python 3.12
 - **NFR-1.2**: Use Python virtual environment for dependency management
-- **NFR-1.3**: Target runtime: AWS Lambda
+- **NFR-1.3**: Target runtime: AWS Lambda (Python 3.12 runtime)
 - **NFR-1.4**: Database: PostgreSQL
+- **NFR-1.5**: VPC Endpoint for S3 required if Lambda is deployed in VPC
 
 ### 3.2 Configuration Management
 - **NFR-2.1**: Configuration file must include:
@@ -130,15 +131,17 @@ UPSERT to PostgreSQL (per batch) → Commit → Next Batch → Complete
 6. Return summary of all batches processed
 
 ### 4.3 AWS Services
-- **AWS Lambda**: Compute service for running the function
+- **AWS Lambda**: Compute service for running the function (Python 3.12 runtime)
 - **Amazon S3**: Source data storage
-- **AWS Secrets Manager** (recommended): Secure credential storage
+- **VPC Endpoint (Gateway)**: Required for Lambda-to-S3 communication when Lambda is in VPC
+- **AWS Secrets Manager** or Environment Variables: Secure credential storage
 - **CloudWatch Logs**: Logging and monitoring
 
-### 4.4 Dependencies (Estimated)
+### 4.4 Dependencies
 - `boto3`: AWS SDK for S3 operations
-- `psycopg2-binary`: PostgreSQL database adapter
-- `python-dotenv` or similar: Configuration management
+- `psycopg2-binary`: PostgreSQL database adapter (Lambda-compatible build for Python 3.12)
+- `python-dotenv`: Configuration management
+- Deployment handled via automated `deploy.py` script
 
 ---
 
@@ -269,7 +272,11 @@ CREATE TABLE comments (
 
 ---
 
-**Document Version**: 1.2
-**Last Updated**: 2026-01-06
-**Status**: Final - Ready for Implementation
-**Changes in v1.2**: Added batch processing (1000 records/commit), UPSERT duplicate handling, scaled for ~100k posts
+**Document Version**: 1.3
+**Last Updated**: 2026-01-07
+**Status**: Implemented and Deployed
+**Changes in v1.3**:
+- Updated to Python 3.12 runtime
+- Added VPC Endpoint requirement for S3 access
+- Implemented automated deployment script (deploy.py)
+- Confirmed Lambda-compatible psycopg2 binary packaging

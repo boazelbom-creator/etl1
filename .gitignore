@@ -45,6 +45,12 @@ lambda_deployment.zip
 
 # Config with real credentials - WARNING: Never commit real credentials!
 # The template config.json is safe to commit with placeholder values only
+config.txt
+
+# Build artifacts
+package/
+psycopg2_temp/
+psycopg2_download/
 
 # Test outputs
 response.json
